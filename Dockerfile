@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Cài các package cần thiết
+# System dependencies
 RUN apt-get update && apt-get install -y \
     nginx \
     git \
@@ -29,24 +29,29 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Cài Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy composer trước để tận dụng Docker cache
+# Copy composer files
 COPY composer.json composer.lock ./
 
+# Install dependencies WITHOUT running Laravel scripts
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --no-scripts
 
-# Copy source Laravel
+# Copy Laravel source
 COPY . .
 
-# Quyền cho Laravel
+# Laravel package discovery
+RUN php artisan package:discover --ansi
+
+# Permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
@@ -54,7 +59,7 @@ RUN chown -R www-data:www-data /var/www/html \
 # Nginx config
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 
-# Startup script
+# Start script
 COPY docker/start.sh /usr/local/bin/start.sh
 
 RUN chmod +x /usr/local/bin/start.sh
