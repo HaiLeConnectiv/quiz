@@ -9,6 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Xóa các bản ghi answers bị trùng
         $duplicateGroups = DB::table('answers')
             ->select(
                 'game_session_id',
@@ -16,7 +17,11 @@ return new class extends Migration
                 'participant_id',
                 DB::raw('MAX(id) as keep_id')
             )
-            ->groupBy('game_session_id', 'question_id', 'participant_id')
+            ->groupBy(
+                'game_session_id',
+                'question_id',
+                'participant_id'
+            )
             ->havingRaw('COUNT(*) > 1')
             ->get();
 
@@ -29,20 +34,62 @@ return new class extends Migration
                 ->delete();
         }
 
-        $indexes = DB::select('SHOW INDEX FROM answers');
-        $hasUnique = collect($indexes)->contains(fn ($index) => $index->Key_name === 'answers_game_session_question_participant_unique');
+        // Kiểm tra unique index bằng Laravel Schema
+        $hasUnique = $this->hasUniqueIndex();
 
         if (!$hasUnique) {
             Schema::table('answers', function (Blueprint $table) {
-                $table->unique(['game_session_id', 'question_id', 'participant_id'], 'answers_game_session_question_participant_unique');
+                $table->unique(
+                    [
+                        'game_session_id',
+                        'question_id',
+                        'participant_id'
+                    ],
+                    'answers_game_session_question_participant_unique'
+                );
             });
         }
+    }
+
+    private function hasUniqueIndex(): bool
+    {
+        $connection = Schema::getConnection();
+
+        $driver = $connection->getDriverName();
+
+        if ($driver === 'pgsql') {
+            $result = DB::select(
+                "
+                SELECT indexname
+                FROM pg_indexes
+                WHERE tablename = 'answers'
+                AND indexname = ?
+                ",
+                ['answers_game_session_question_participant_unique']
+            );
+
+            return count($result) > 0;
+        }
+
+        if ($driver === 'mysql') {
+            $indexes = DB::select('SHOW INDEX FROM answers');
+
+            return collect($indexes)->contains(
+                fn ($index) =>
+                    $index->Key_name ===
+                    'answers_game_session_question_participant_unique'
+            );
+        }
+
+        return false;
     }
 
     public function down(): void
     {
         Schema::table('answers', function (Blueprint $table) {
-            $table->dropUnique('answers_game_session_question_participant_unique');
+            $table->dropUnique(
+                'answers_game_session_question_participant_unique'
+            );
         });
     }
 };
