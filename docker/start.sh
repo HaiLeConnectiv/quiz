@@ -4,19 +4,20 @@ set -e
 
 echo "Starting Laravel..."
 
-# Đảm bảo quyền
+# Permissions
 chown -R www-data:www-data /var/www/html/storage
 chown -R www-data:www-data /var/www/html/bootstrap/cache
 
 chmod -R 775 /var/www/html/storage
 chmod -R 775 /var/www/html/bootstrap/cache
 
-# Không chạy cache:clear vì có thể gây lỗi permission trên Render
+# Database migration + seeder
+php artisan migrate --seed --force
 
-# Storage link
+# Storage
 php artisan storage:link || true
 
-# Cache production
+# Laravel cache
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
