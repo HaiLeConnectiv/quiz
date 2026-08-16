@@ -4,11 +4,16 @@ set -e
 
 echo "Starting Laravel..."
 
-# Tạo cache/config
-php artisan config:clear
-php artisan cache:clear
+# Đảm bảo quyền
+chown -R www-data:www-data /var/www/html/storage
+chown -R www-data:www-data /var/www/html/bootstrap/cache
 
-# Tạo storage link nếu chưa có
+chmod -R 775 /var/www/html/storage
+chmod -R 775 /var/www/html/bootstrap/cache
+
+# Không chạy cache:clear vì có thể gây lỗi permission trên Render
+
+# Storage link
 php artisan storage:link || true
 
 # Cache production
@@ -16,8 +21,8 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-# Khởi động PHP-FPM
+# PHP-FPM
 php-fpm -D
 
-# Khởi động Nginx ở foreground
+# Nginx
 nginx -g "daemon off;"
